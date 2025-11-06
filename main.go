@@ -138,7 +138,6 @@ func main() {
 		networks[n].Set.Add("b1", 8)
 		networks[n].Set.Add("l2", 16, 3)
 		networks[n].Set.Add("b2", 3)
-
 		for ii := range networks[n].Set.Weights {
 			w := networks[n].Set.Weights[ii]
 			if strings.HasPrefix(w.N, "b") {
@@ -159,6 +158,9 @@ func main() {
 			}
 		}
 
+	}
+
+	train := func(n int, reg bool) {
 		/*drop := .3
 		dropout := map[string]interface{}{
 			"rng":  rng,
@@ -168,6 +170,13 @@ func main() {
 		l1 := tf64.Everett(tf64.Add(tf64.Mul(networks[n].Set.Get("l1"), networks[n].Others.Get("input")), networks[n].Set.Get("b1")))
 		l2 := tf64.Add(tf64.Mul(networks[n].Set.Get("l2"), l1), networks[n].Set.Get("b2"))
 		loss := tf64.Avg(tf64.Quadratic(networks[n].Others.Get("output"), l2))
+		if reg {
+			n := tf64.Abs(tf64.Avg(tf64.Similarity(networks[0].Set.Get("l1"), networks[1].Set.Get("l1"))))
+			n = tf64.Add(tf64.Abs(tf64.Avg(tf64.Similarity(networks[0].Set.Get("b1"), networks[1].Set.Get("b1")))), n)
+			n = tf64.Add(tf64.Abs(tf64.Avg(tf64.Similarity(networks[0].Set.Get("l2"), networks[1].Set.Get("l2")))), n)
+			n = tf64.Add(tf64.Abs(tf64.Avg(tf64.Similarity(networks[0].Set.Get("b2"), networks[1].Set.Get("b2")))), n)
+			loss = tf64.Add(loss, n)
+		}
 
 		for iteration := range 1024 {
 			pow := func(x float64) float64 {
@@ -216,4 +225,25 @@ func main() {
 			fmt.Println(l)
 		}
 	}
+
+	for n := range networks {
+		train(n, false)
+	}
+
+	{
+		input := networks[0].Others.ByName["input"]
+		output := networks[0].Others.ByName["output"]
+		for i := range input.X {
+			input.X[i] = rng.Float64()
+		}
+		l1 := tf64.Everett(tf64.Add(tf64.Mul(networks[0].Set.Get("l1"), networks[0].Others.Get("input")), networks[0].Set.Get("b1")))
+		l2 := tf64.Add(tf64.Mul(networks[0].Set.Get("l2"), l1), networks[0].Set.Get("b2"))
+		l2(func(a *tf64.V) bool {
+			copy(output.X, a.X)
+			return true
+		})
+		copy(networks[1].Others.ByName["input"].X, input.X)
+		copy(networks[1].Others.ByName["output"].X, output.X)
+	}
+	train(1, true)
 }
