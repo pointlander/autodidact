@@ -226,15 +226,47 @@ func main() {
 		}
 	}
 
+	acc := func(n int) int {
+		input := networks[n].Others.ByName["input"]
+		for i, row := range iris {
+			copy(input.X[i*4:(i+1)*4], row.Measures)
+		}
+		l1 := tf64.Everett(tf64.Add(tf64.Mul(networks[n].Set.Get("l1"), networks[n].Others.Get("input")), networks[n].Set.Get("b1")))
+		l2 := tf64.Add(tf64.Mul(networks[n].Set.Get("l2"), l1), networks[n].Set.Get("b2"))
+		count := 0
+		l2(func(a *tf64.V) bool {
+			for i, row := range iris {
+				output := a.X[i*3 : (i+1)*3]
+				max, index := 0.0, 0
+				for ii, value := range output {
+					if value > max {
+						max, index = value, ii
+					}
+				}
+				if index != Labels[row.Label] {
+					count++
+				}
+			}
+			return true
+		})
+		return count
+	}
+
 	for n := range networks {
 		train(n, false)
 	}
 
+	acc1 := acc(1)
+
 	{
 		input := networks[0].Others.ByName["input"]
 		output := networks[0].Others.ByName["output"]
-		for i := range input.X {
-			input.X[i] = rng.Float64()
+		for i := range iris {
+			if i&1 == 0 {
+				for ii := range 4 {
+					input.X[i*4+ii] = rng.NormFloat64()
+				}
+			}
 		}
 		l1 := tf64.Everett(tf64.Add(tf64.Mul(networks[0].Set.Get("l1"), networks[0].Others.Get("input")), networks[0].Set.Get("b1")))
 		l2 := tf64.Add(tf64.Mul(networks[0].Set.Get("l2"), l1), networks[0].Set.Get("b2"))
@@ -246,4 +278,7 @@ func main() {
 		copy(networks[1].Others.ByName["output"].X, output.X)
 	}
 	train(1, true)
+
+	acc2 := acc(1)
+	fmt.Println(acc1, acc2)
 }
